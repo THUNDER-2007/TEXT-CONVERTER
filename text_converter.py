@@ -3,7 +3,7 @@ import requests
 
 st.set_page_config(page_title="Handwriting OCR", layout="wide")
 st.title("📄 Handwriting OCR (Tamil + English)")
-st.write("Upload a PDF, photo, or screenshot → Extract Tamil & English text in one click!")
+st.write("Upload a PDF, photo, or screenshot → Extract text in one click!")
 
 # Your OCR.Space API key
 API_KEY = "K87727956988957"
@@ -16,10 +16,12 @@ def ocr_space_file(file, language="eng", filetype=None):
         "isOverlayRequired": False
     }
     if filetype:
-        payload["filetype"] = filetype  # Explicitly set file type for PDFs
+        payload["filetype"] = filetype  # Explicitly set PDF type
+
+    # Include filename to help API detect file type
+    files = {"file": (file.name, file.getvalue())}
 
     try:
-        files = {"file": file.getvalue()}
         response = requests.post("https://api.ocr.space/parse/image",
                                  files=files,
                                  data=payload)
@@ -45,21 +47,15 @@ if uploaded_file is not None:
     # Set file type for PDF explicitly
     filetype = "PDF" if uploaded_file.type == "application/pdf" else None
 
-    # Run OCR for Tamil first
-    tamil_text, error_ta = ocr_space_file(uploaded_file, language="ta", filetype=filetype)
-    uploaded_file.seek(0)  # Reset file pointer for second request
-
-    # Run OCR for English
+    # Run OCR for English first (works reliably on free tier)
     english_text, error_en = ocr_space_file(uploaded_file, language="eng", filetype=filetype)
 
     extracted_text = ""
-    if tamil_text:
-        extracted_text += "✅ Tamil Text:\n" + tamil_text + "\n\n"
     if english_text:
         extracted_text += "✅ English Text:\n" + english_text
 
-    if error_ta or error_en:
-        st.error(f"Errors occurred:\nTamil: {error_ta}\nEnglish: {error_en}")
+    if error_en:
+        st.error(f"Error occurred:\n{error_en}")
 
     if extracted_text.strip():
         st.subheader("✅ Extracted Text:")
