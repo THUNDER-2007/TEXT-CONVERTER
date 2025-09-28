@@ -1,15 +1,16 @@
 import streamlit as st
 import requests
-from PyPDF2 import PdfReader
+from pdf2image import convert_from_bytes
+from io import BytesIO
 
 st.set_page_config(page_title="Handwriting OCR", layout="wide")
 st.title("📄 Handwriting OCR (Tamil + English)")
 st.write("Upload a PDF or image → Extract text with page-wise copy option!")
 
-# Your OCR.Space API key
+# OCR.Space API key
 API_KEY = "K87727956988957"
 
-def ocr_space_file(file, language="eng", filetype=None):
+def ocr_space_file(file_bytes, language="eng", filetype=None):
     """Send file to OCR.Space API and get extracted text."""
     payload = {
         "apikey": API_KEY,
@@ -19,7 +20,7 @@ def ocr_space_file(file, language="eng", filetype=None):
     if filetype:
         payload["filetype"] = filetype
 
-    files = {"file": (file.name, file.getvalue())}
+    files = {"file": ("file", file_bytes)}
 
     try:
         response = requests.post(
@@ -40,30 +41,37 @@ def ocr_space_file(file, language="eng", filetype=None):
     
     return texts, None
 
-# Streamlit file uploader
+# File uploader
 uploaded_file = st.file_uploader("Upload PDF or Image", type=["pdf", "png", "jpg", "jpeg"])
 
 if uploaded_file is not None:
     st.info("Processing file...")
 
-    filetype = "PDF" if uploaded_file.type == "application/pdf" else None
+    file_bytes = uploaded_file.read()
 
-    # Handle PDF page-wise
-    if filetype == "PDF":
-        pdf = PdfReader(uploaded_file)
-        for i, page in enumerate(pdf.pages):
+    # Handle PDF
+    if uploaded_file.type == "application/pdf":
+        # Convert PDF pages to images
+        images = convert_from_bytes(file_bytes)
+        for i, image in enumerate(images):
             st.subheader(f"Page {i+1}")
-            # Extract text directly from PDF page
-            page_text = page.extract_text() or "No text detected on this page"
+            # Convert PIL image to bytes for OCR
+            img_byte_arr = BytesIO()
+            image.save(img_byte_arr, format='PNG')
+            page_bytes = img_byte_arr.getvalue()
+
+            texts, error = ocr_space_file(page_bytes, language="eng")
+            page_text = texts[0] if texts else "No text detected on this page"
             st.text_area(f"Page {i+1} Text", page_text, height=200, key=f"page_{i}")
-            # Copy button for each page
             st.markdown(f"""
                 <button onclick="navigator.clipboard.writeText({page_text})">
                 📋 Copy Page {i+1}</button>
             """, unsafe_allow_html=True)
+            if error:
+                st.error(f"Error on page {i+1}: {error}")
     else:
         # For images
-        texts, error = ocr_space_file(uploaded_file, language="eng")
+        texts, error = ocr_space_file(file_bytes, language="eng")
         if texts:
             for idx, t in enumerate(texts):
                 st.subheader(f"Page {idx+1}")
