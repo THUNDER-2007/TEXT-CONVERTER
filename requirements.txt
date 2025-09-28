@@ -1,4 +1,2 @@
 streamlit
-pytesseract
-Pillow
-PyMuPDF
+requests
