@@ -1,11 +1,11 @@
 import streamlit as st
 import requests
+from PyPDF2 import PdfReader
 
 st.set_page_config(page_title="Handwriting OCR", layout="wide")
 st.title("📄 Handwriting OCR (Tamil + English)")
-st.write("Upload a PDF, photo, or screenshot → Extract text in one click!")
+st.write("Upload a PDF or image → Extract text with page-wise copy option!")
 
-# Your OCR.Space API key
 API_KEY = "K87727956988957"
 
 def ocr_space_file(file, language="eng", filetype=None):
@@ -16,9 +16,8 @@ def ocr_space_file(file, language="eng", filetype=None):
         "isOverlayRequired": False
     }
     if filetype:
-        payload["filetype"] = filetype  # Explicitly set PDF type
+        payload["filetype"] = filetype
 
-    # Include filename to help API detect file type
     files = {"file": (file.name, file.getvalue())}
 
     try:
@@ -32,39 +31,13 @@ def ocr_space_file(file, language="eng", filetype=None):
     if result.get("IsErroredOnProcessing"):
         return None, result.get("ErrorMessage")
     
-    text = ""
+    texts = []
     for parsed in result.get("ParsedResults", []):
-        text += parsed.get("ParsedText", "")
+        texts.append(parsed.get("ParsedText", ""))
     
-    return text, None
+    return texts, None
 
-# Streamlit file uploader
 uploaded_file = st.file_uploader("Upload PDF or Image", type=["pdf", "png", "jpg", "jpeg"])
 
 if uploaded_file is not None:
-    st.info("Processing file...")
-
-    # Set file type for PDF explicitly
-    filetype = "PDF" if uploaded_file.type == "application/pdf" else None
-
-    # Run OCR for English first (works reliably on free tier)
-    english_text, error_en = ocr_space_file(uploaded_file, language="eng", filetype=filetype)
-
-    extracted_text = ""
-    if english_text:
-        extracted_text += "✅ English Text:\n" + english_text
-
-    if error_en:
-        st.error(f"Error occurred:\n{error_en}")
-
-    if extracted_text.strip():
-        st.subheader("✅ Extracted Text:")
-        st.text_area("Result", extracted_text, height=400)
-        st.download_button(
-            label="💾 Download as Text File",
-            data=extracted_text,
-            file_name="output_text.txt",
-            mime="text/plain"
-        )
-    else:
-        st.warning("⚠️ No text detected. Try another file.")
+    st.info("Processing
